@@ -32,6 +32,7 @@
 #include "scadable_internal.h"
 
 #include <stdbool.h>
+#include <string.h>           // strncpy in the NVS-fallback path
 
 #include "esp_event.h"
 #include "esp_log.h"

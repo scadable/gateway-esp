@@ -13,6 +13,7 @@
  * broker yet, so doing so would just bloat the handshake.
  */
 
+#include "scadable.h"            // public scd_qos_t needed by the public wrappers at file bottom
 #include "scadable_internal.h"
 
 #include <stdatomic.h>
