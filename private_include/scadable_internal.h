@@ -79,6 +79,13 @@ void scd_heartbeat_start(const scd_identity_t *id);
 /* ─── ota_machine.c ─── */
 void scd_ota_start(const scd_identity_t *id);
 
+/* ─── scadable_main.c ─── */
+/* Returns a pointer to the single resident identity loaded at boot,
+ * or NULL if the library hasn't reached that step (e.g. caller running
+ * before scadable_user_main was invoked, which shouldn't happen for
+ * customer-facing APIs). Pointer is valid for the process lifetime. */
+const scd_identity_t *scd_get_identity(void);
+
 #ifdef __cplusplus
 }
 #endif

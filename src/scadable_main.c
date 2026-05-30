@@ -45,7 +45,14 @@
 static const char *TAG = "scadable";
 
 static scd_identity_t s_identity;
+static volatile bool  s_identity_loaded = false;
 static volatile bool  s_online_bootstrapped = false;
+
+/* Accessor for sibling translation units (e.g. upload.c) that need
+ * the device CN without re-reading NVS. */
+const scd_identity_t *scd_get_identity(void) {
+    return s_identity_loaded ? &s_identity : NULL;
+}
 
 /* Default customer entry — does nothing. Customer overrides this
  * with a strong symbol of the same name to do their own work. */
@@ -117,6 +124,7 @@ __attribute__((weak)) void app_main(void) {
         scadable_user_main();
         while (1) vTaskDelay(portMAX_DELAY);
     }
+    s_identity_loaded = true;
 
     /* esp_netif + event loop are prerequisites for receiving IP events.
      * Customer's network code (esp_wifi_init etc.) will also expect

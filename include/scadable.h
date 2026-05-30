@@ -106,6 +106,76 @@ esp_err_t scadable_mqtt_publish(
  */
 bool scadable_mqtt_connected(void);
 
+/* ─── File uploads (v0.2.0; compile-time opt-in) ────────────────────
+ *
+ * Streaming upload to the SCADABLE platform. Enabled by setting
+ * CONFIG_SCD_UPLOAD_ENABLE=y in menuconfig — when off, none of this
+ * is in the binary.
+ *
+ * Usage:
+ *
+ *     scd_upload_handle_t up;
+ *     scadable_upload_begin("crashdump.bin", "application/octet-stream", &up);
+ *     while (read_chunk(buf, sizeof(buf), &n)) {
+ *         if (scadable_upload_chunk(up, buf, n) != ESP_OK) {
+ *             scadable_upload_abort(up);
+ *             return;
+ *         }
+ *     }
+ *     char file_id[64];
+ *     scadable_upload_end(up, file_id, sizeof(file_id));
+ *     ESP_LOGI("app", "uploaded as %s", file_id);
+ *
+ * Library handles auth via X-Device-CN automatically. Server stamps
+ * the org_id and namespace_id by looking up the cert CN; you don't
+ * pass them.
+ *
+ * Memory: the upload chunks the request body, so the device doesn't
+ * need to hold the full file in RAM. ~6 KB stack for the worker task.
+ */
+#if defined(CONFIG_SCD_UPLOAD_ENABLE)
+
+typedef struct scd_upload* scd_upload_handle_t;
+
+/* Open an upload session. Allocates the handle; returns ESP_OK on
+ * success, ESP_ERR_NO_MEM or ESP_ERR_INVALID_STATE on failure.
+ *
+ * @param filename     Filename to record (purely metadata; doesn't
+ *                     affect storage). NULL = let server pick.
+ * @param content_type MIME type. NULL = "application/octet-stream".
+ * @param out          Receives the handle on success.
+ */
+esp_err_t scadable_upload_begin(const char *filename,
+                                const char *content_type,
+                                scd_upload_handle_t *out);
+
+/* Append bytes to an in-flight upload. Safe to call from any task,
+ * but only one chunk-write may be in flight per handle at a time.
+ *
+ * @return ESP_OK on success, or ESP_ERR_* on network / state error.
+ *         An error leaves the handle in a poisoned state; call
+ *         scadable_upload_abort to free it.
+ */
+esp_err_t scadable_upload_chunk(scd_upload_handle_t h,
+                                const void *bytes, size_t len);
+
+/* Finalize an upload. Sends the closing chunk, reads the server's
+ * JSON response, parses out the file_id, frees the handle.
+ *
+ * @param file_id_out   Buffer to receive the server-assigned file_id.
+ *                      May be NULL if the caller doesn't care.
+ * @param file_id_max   Capacity of file_id_out.
+ */
+esp_err_t scadable_upload_end(scd_upload_handle_t h,
+                              char *file_id_out, size_t file_id_max);
+
+/* Abort and free an in-flight upload. Call this on any error from
+ * scadable_upload_chunk so the handle's resources are released.
+ * Always safe to call; idempotent. */
+void scadable_upload_abort(scd_upload_handle_t h);
+
+#endif /* CONFIG_SCD_UPLOAD_ENABLE */
+
 #ifdef __cplusplus
 }
 #endif

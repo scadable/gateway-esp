@@ -56,4 +56,31 @@ menu "SCADABLE Gateway"
             Enables debug-level logs from the library. Off by default
             to keep console noise low in production.
 
+    config SCD_UPLOAD_ENABLE
+        bool "Enable file upload feature"
+        default n
+        help
+            Compile in the scadable_upload_* API for streaming file
+            uploads to uploads.scadable.com. Off by default so projects
+            that don't need uploads pay zero cost (no extra code, no
+            extra heap, no extra TLS handshakes).
+
+    config SCD_UPLOAD_URL
+        string "Uploads endpoint URL"
+        depends on SCD_UPLOAD_ENABLE
+        default "https://uploads.scadable.com/v1/upload"
+        help
+            HTTPS endpoint the upload API PUTs to. Override for dev or
+            staging environments. The library adds X-Device-CN headers
+            automatically.
+
+    config SCD_UPLOAD_TIMEOUT_MS
+        int "Per-upload HTTP timeout (ms)"
+        depends on SCD_UPLOAD_ENABLE
+        default 60000
+        range 5000 600000
+        help
+            How long a single upload may take from open to close. Pick
+            higher for big files on slow links.
+
 endmenu

@@ -15,6 +15,7 @@ idf_component_register(
         "src/mqtt_session.c"
         "src/heartbeat.c"
         "src/ota_machine.c"
+        "src/upload.c"
     INCLUDE_DIRS
         "include"
     PRIV_INCLUDE_DIRS

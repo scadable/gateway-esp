@@ -8,13 +8,14 @@
 #
 # Then the IDF Component Manager pulls this component into their build.
 
-version: "0.1.0"
+version: "0.2.0"
 description: |
   SCADABLE platform integration for ESP32. Boots, loads the
   device certificate from NVS, discovers the MQTT broker via
   edge.scadable.com, connects over TLS, publishes heartbeats,
-  and handles OTA updates. Customer brings their own network
-  (Wi-Fi / Ethernet / cellular).
+  and handles OTA updates. Optional streaming file upload to
+  uploads.scadable.com (compile-time opt-in). Customer brings
+  their own network (Wi-Fi / Ethernet / cellular).
 
 url: https://github.com/scadable/gateway-esp
 issues: https://github.com/scadable/gateway-esp/issues
