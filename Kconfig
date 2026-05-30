@@ -1,0 +1,59 @@
+# Kconfig options for libscadable. These show up under
+#   (Top) → Component config → SCADABLE Gateway
+# in `idf.py menuconfig`.
+
+menu "SCADABLE Gateway"
+
+    config SCD_EDGE_URL
+        string "Edge router URL"
+        default "https://edge.scadable.com/v1/route"
+        help
+            The HTTPS endpoint the library calls at boot to discover
+            which MQTT broker to connect to. Defaults to the production
+            edge. Override for dev / staging.
+
+    config SCD_EDGE_TIMEOUT_MS
+        int "Edge HTTP timeout (ms)"
+        default 10000
+        range 1000 60000
+        help
+            Per-attempt HTTPS timeout for GET /v1/route. The library
+            retries with backoff on failure (then falls back to the
+            NVS-baked mqtt_host / mqtt_port).
+
+    config SCD_EDGE_MAX_RETRIES
+        int "Edge HTTP retries"
+        default 2
+        range 0 10
+        help
+            How many times to retry the /v1/route call before falling
+            back to the NVS-baked broker host.
+
+    config SCD_HEARTBEAT_INTERVAL_S
+        int "Heartbeat interval (seconds)"
+        default 30
+        range 5 3600
+        help
+            How often the library publishes a heartbeat to
+            scadable/<cn>/heartbeat. Default 30s.
+
+    config SCD_MQTT_RECONNECT_TIMEOUT_MS
+        int "MQTT reconnect timeout (ms)"
+        default 5000
+        range 1000 60000
+
+    config SCD_NVS_NAMESPACE
+        string "NVS namespace for device credentials"
+        default "scadable_cfg"
+        help
+            Must match what the SCADABLE backend's provisioning bundle
+            writes. Change only if you're running a custom provisioner.
+
+    config SCD_DEBUG_VERBOSE
+        bool "Verbose logging"
+        default n
+        help
+            Enables debug-level logs from the library. Off by default
+            to keep console noise low in production.
+
+endmenu

@@ -1,0 +1,42 @@
+# Publish libscadable to the ESP-IDF Component Registry on tag push.
+#
+# Trigger: push a tag matching v*.*.* (e.g. v0.1.0). This kicks off
+# the workflow, which calls espressif/upload-components-ci-action to
+# package the component and upload it to components.espressif.com
+# under the scadable/ namespace.
+#
+# Required repository secret:
+#   IDF_COMPONENT_API_TOKEN — generated at
+#     https://components.espressif.com/settings/tokens
+#   The token must have publish permission for the scadable namespace.
+
+name: Publish to ESP-IDF Component Registry
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION="$(grep '^version:' idf_component.yml | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match idf_component.yml version ($MANIFEST_VERSION)"
+            exit 1
+          fi
+          echo "Releasing $TAG_VERSION"
+
+      - name: Upload to Component Registry
+        uses: espressif/upload-components-ci-action@v1
+        with:
+          name: libscadable
+          namespace: scadable
+          api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
