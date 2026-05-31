@@ -20,14 +20,9 @@
 
 static const char *TAG = "scd.heartbeat";
 
-/* boot_count is read at boot from NVS and incremented; useful for
- * fleet-health analysis (frequent restarts = a problem). v0.1.0
- * keeps this in RAM only — bumping NVS each boot would wear flash. */
-static uint32_t s_boot_count = 1;
-
-/* The full payload fits comfortably under 160 bytes; if it ever
- * doesn't, snprintf truncates rather than overflowing. */
-#define HEARTBEAT_BUF_SIZE 192
+/* v0.3.0: buffer now sized for always-on prefix + all opt-in metrics
+ * folded in. Snprintf truncates rather than overflowing. */
+#define HEARTBEAT_BUF_SIZE 512
 
 static void heartbeat_task(void *arg) {
     const scd_identity_t *id = (const scd_identity_t *)arg;
@@ -39,13 +34,37 @@ static void heartbeat_task(void *arg) {
 
     while (1) {
         if (scd_mqtt_is_connected()) {
+            /* v0.3.0 extended payload. Always-on fields go first; the
+             * metrics collector appends opt-in fields with a leading
+             * comma each. We close the JSON object manually after both
+             * have written so the collector doesn't need to know about
+             * the closing brace. */
+            int64_t now_ms = esp_timer_get_time() / 1000;
             int n = snprintf(buf, sizeof(buf),
-                "{\"uptime_s\":%lld,\"free_heap\":%u,\"boot\":%u,\"fw\":\"%s\"}",
+                "{\"uptime_s\":%lld,\"free_heap\":%u,\"boot\":%u,\"fw\":\"%s\","
+                "\"reset_reason\":\"%s\",\"client_ts_ms\":%lld",
                 (long long)(esp_timer_get_time() / 1000000),
                 (unsigned)esp_get_free_heap_size(),
-                (unsigned)s_boot_count,
-                "0.1.0");
-            if (n > 0) {
+                (unsigned)scd_boot_count(),
+                "0.3.0",
+                scd_reset_reason_str(),
+                (long long)now_ms);
+            if (n > 0 && n < (int)sizeof(buf)) {
+                int m = scd_metrics_collect_json(buf + n, (int)sizeof(buf) - n);
+                if (m > 0) n += m;
+
+                /* Close the JSON object. If we somehow ran out of room
+                 * before the close, force the last byte to be '}' so
+                 * the broker still sees valid JSON. */
+                if (n < (int)sizeof(buf) - 1) {
+                    buf[n++] = '}';
+                    buf[n]   = '\0';
+                } else {
+                    buf[sizeof(buf) - 2] = '}';
+                    buf[sizeof(buf) - 1] = '\0';
+                    n = (int)sizeof(buf) - 1;
+                }
+
                 esp_err_t err = scd_mqtt_publish_raw(
                     id->topic_heartbeat, buf, n, 0 /* QoS 0 */, false);
                 if (err != ESP_OK) {
