@@ -55,14 +55,17 @@ const scd_identity_t *scd_get_identity(void) {
     return s_identity_loaded ? &s_identity : NULL;
 }
 
-/* Default customer entry — does nothing. Customer overrides this
- * with a strong symbol of the same name to do their own work. */
-__attribute__((weak)) void scadable_user_main(void) {
-    ESP_LOGW(TAG,
-        "scadable_user_main not defined — running headless. The library "
-        "will idle until something brings up an IP (which won't happen "
-        "without your code). Define scadable_user_main() to fix this.");
-}
+/* Customer MUST define scadable_user_main in their own code. We used to
+ * provide a weak fallback here that just logged "running headless", but
+ * in practice the ESP-IDF build system was sometimes resolving the weak
+ * fallback over the customer's strong definition (the WHOLE_ARCHIVE
+ * treatment of main isn't enough on its own to make strong-over-weak
+ * deterministic in this codebase). Forcing the customer to define
+ * scadable_user_main turns a silent runtime "no Wi-Fi ever" into a loud
+ * link-time "undefined reference to scadable_user_main", which is the
+ * right semantics — libscadable does nothing useful without customer
+ * code to bring up the network. Burned hours on this 2026-05-31. */
+extern void scadable_user_main(void);
 
 /* Bring up the SCADABLE plumbing once we have an IP. Runs in a task
  * spawned from the IP event handler so we can do blocking HTTP +
