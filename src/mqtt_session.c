@@ -69,8 +69,13 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t event_id, vo
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "disconnected");
         atomic_store(&s_connected, false);
+        atomic_fetch_add(&scd_mqtt_reconnect_count, 1u);
         break;
     case MQTT_EVENT_DATA: {
+        /* Count all inbound bytes, even if no user callback is installed.
+         * The counter is "bytes ingested by our process", not "bytes
+         * delivered to user code". */
+        atomic_fetch_add(&scd_bytes_in, (uint_least64_t)event->data_len);
         if (!s_data_cb || event->topic_len <= 0) break;
         /* Topic + data are not NUL-terminated in the event. */
         char topic[MAX_TOPIC_LEN];
@@ -171,7 +176,13 @@ esp_err_t scd_mqtt_publish_raw(const char *topic, const void *payload, int len,
     if (len < 0) len = strlen((const char *)payload);
     int msg_id = esp_mqtt_client_publish(s_client, topic, (const char *)payload,
                                          len, qos, retain ? 1 : 0);
-    return msg_id >= 0 ? ESP_OK : ESP_ERR_NO_MEM;
+    if (msg_id >= 0) {
+        atomic_fetch_add(&scd_bytes_out, (uint_least64_t)len);
+        atomic_fetch_add(&scd_mqtt_publish_count, 1u);
+        return ESP_OK;
+    }
+    atomic_fetch_add(&scd_mqtt_publish_fail_count, 1u);
+    return ESP_ERR_NO_MEM;
 }
 
 int scd_mqtt_subscribe(const char *topic) {
