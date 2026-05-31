@@ -90,6 +90,9 @@ typedef struct {
 static esp_err_t http_event(esp_http_client_event_t *e) {
     resp_buf_t *rb = (resp_buf_t *)e->user_data;
     if (e->event_id == HTTP_EVENT_ON_DATA && rb && e->data && e->data_len > 0) {
+        /* v0.3.0: count bytes off the wire even if they overflow our
+         * response buffer - the metric is "ingested by this process". */
+        atomic_fetch_add(&scd_bytes_in, (uint_least64_t)e->data_len);
         int room = (int)sizeof(rb->buf) - 1 - rb->used;
         if (e->data_len > room) {
             rb->overflowed = true;
