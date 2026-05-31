@@ -86,6 +86,11 @@ void scd_ota_start(const scd_identity_t *id);
  * customer-facing APIs). Pointer is valid for the process lifetime. */
 const scd_identity_t *scd_get_identity(void);
 
+/* v0.3.0 - extern declarations for hot-path counters live in metrics.h.
+ * Re-exposed here so mqtt_session.c, edge.c, upload.c can pick them up
+ * via the single internal header they already include. */
+#include "metrics.h"
+
 #ifdef __cplusplus
 }
 #endif
