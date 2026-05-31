@@ -8,7 +8,7 @@
 #
 # Then the IDF Component Manager pulls this component into their build.
 
-version: "0.2.2"
+version: "0.2.3"
 description: |
   SCADABLE platform integration for ESP32. Boots, loads the
   device certificate from NVS, discovers the MQTT broker via

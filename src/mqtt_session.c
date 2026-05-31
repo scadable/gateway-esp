@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_crt_bundle.h"       // bundled CA store for MQTT TLS (replaces NVS-pinned CA)
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -114,11 +115,19 @@ esp_err_t scd_mqtt_start(const scd_identity_t *id, const scd_edge_route_t *route
     snprintf(uri, sizeof(uri), "mqtts://%s:%d", route->mqtt_host, route->mqtt_port);
 
     /* Client_id = common_name so the broker sees a stable identity
-     * matching the cert CN (useful even without mTLS for ACL setup). */
+     * matching the cert CN (useful even without mTLS for ACL setup).
+     *
+     * For broker cert verification: prefer the bundled CA store
+     * (ISRG/Let's Encrypt etc.) over the NVS-baked CA. EMQX is fronted
+     * by Caddy with a Let's Encrypt cert, so the bundle covers it; the
+     * NVS CA was historically a per-deployment pin that didn't always
+     * match the live broker cert and caused MBEDTLS_ERR_X509_CERT_VERIFY
+     * (-0x2700) handshakes to fail. The bundle keeps working through
+     * normal cert rotation. */
     esp_mqtt_client_config_t cfg = {
         .broker = {
-            .address.uri              = uri,
-            .verification.certificate = s_ca_pem,   /* validate broker cert */
+            .address.uri                       = uri,
+            .verification.crt_bundle_attach    = esp_crt_bundle_attach,
         },
         .credentials = {
             .client_id = id->common_name,

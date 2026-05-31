@@ -16,6 +16,7 @@
 
 #include <string.h>
 
+#include "esp_crt_bundle.h"       // bundled CA store (Let's Encrypt et al.) for HTTPS edge call
 #include "esp_err.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -110,8 +111,14 @@ static esp_err_t try_once(const char *url, const char *cn, scd_edge_route_t *out
         .timeout_ms        = CONFIG_SCD_EDGE_TIMEOUT_MS,
         .event_handler     = http_event,
         .user_data         = &rb,
-        .crt_bundle_attach = NULL,  /* use system cert bundle if configured;
-                                       library doesn't pin edge cert */
+        /* Attach the bundled CA store (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+         * defaults to y in any IDF v5+ project that doesn't explicitly
+         * turn it off). edge.scadable.com is fronted by Caddy with a
+         * Let's Encrypt cert; ISRG Root X1 is in the bundle. Setting
+         * this to NULL (as we did before v0.2.3) caused esp-tls to
+         * refuse the connection with "No server verification option
+         * set in esp_tls_cfg_t structure". */
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
     if (!client) return ESP_ERR_NO_MEM;
