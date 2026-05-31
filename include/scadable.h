@@ -106,6 +106,36 @@ esp_err_t scadable_mqtt_publish(
  */
 bool scadable_mqtt_connected(void);
 
+/* ─── Topic builder ─────────────────────────────────────────────────
+ *
+ * Construct a fully-qualified MQTT topic under THIS device's per-tenant
+ * namespace. Equivalent to:
+ *
+ *     snprintf(buf, buf_len, "scadable/%s/%s", common_name, suffix);
+ *
+ * where common_name comes from the device's identity bundle (loaded
+ * from NVS at boot).
+ *
+ * Why you want this: api.scadable.com's /v1/mqtt/stream filter only
+ * forwards messages under scadable/+/+. A bare topic like
+ * "sensor/env" reaches the broker but never reaches customer API
+ * keys. Use this helper so your publishes show up in the customer
+ * stream automatically.
+ *
+ * Typical call site (inside scadable_user_main or a task spawned
+ * from it):
+ *
+ *     char topic[80];
+ *     scadable_topic(topic, sizeof(topic), "sensor");
+ *     scadable_mqtt_publish(topic, json, n, SCD_QOS_0, false);
+ *
+ * @return Number of bytes written excluding the NUL terminator, or
+ *         -1 if buf is NULL, buf_len is too small, or the device
+ *         identity hasn't loaded yet (you called this before
+ *         scadable_user_main was reached).
+ */
+int scadable_topic(char *buf, size_t buf_len, const char *suffix);
+
 /* ─── File uploads (v0.2.0; compile-time opt-in) ────────────────────
  *
  * Streaming upload to the SCADABLE platform. Enabled by setting

@@ -55,6 +55,18 @@ const scd_identity_t *scd_get_identity(void) {
     return s_identity_loaded ? &s_identity : NULL;
 }
 
+/* Public helper — see include/scadable.h for full doc. Builds
+ * "scadable/{cn}/{suffix}" so customer publishes land in the
+ * per-tenant namespace that api.scadable.com forwards. */
+int scadable_topic(char *buf, size_t buf_len, const char *suffix) {
+    if (!buf || buf_len < 16 || !suffix) return -1;
+    if (!s_identity_loaded) return -1;
+    int n = snprintf(buf, buf_len, "scadable/%s/%s",
+                     s_identity.common_name, suffix);
+    if (n < 0 || (size_t)n >= buf_len) return -1;
+    return n;
+}
+
 /* Customer MUST define scadable_user_main in their own code. We used to
  * provide a weak fallback here that just logged "running headless", but
  * in practice the ESP-IDF build system was sometimes resolving the weak
