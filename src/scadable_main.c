@@ -42,8 +42,45 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
+#include "esp_system.h"   /* esp_reset_reason */
+#include "nvs.h"          /* nvs_handle_t, nvs_open, nvs_get_u32, nvs_set_u32 */
 
 static const char *TAG = "scadable";
+
+#define SCD_NVS_NS    "scadable"
+#define SCD_NVS_BOOT  "boot_count"
+
+static uint32_t bump_boot_count_in_nvs(void) {
+    nvs_handle_t h;
+    if (nvs_open(SCD_NVS_NS, NVS_READWRITE, &h) != ESP_OK) return 1;
+    uint32_t count = 0;
+    (void)nvs_get_u32(h, SCD_NVS_BOOT, &count);
+    count++;
+    (void)nvs_set_u32(h, SCD_NVS_BOOT, count);
+    (void)nvs_commit(h);
+    nvs_close(h);
+    return count;
+}
+
+#ifdef CONFIG_SCD_METRICS_OTA_ROLLBACK
+#include "esp_ota_ops.h"
+/* Increment the OTA rollback counter when the running image came up
+ * in PENDING_VERIFY state - that means the bootloader picked it as
+ * the rollback target. Called once per boot. */
+static void bump_ota_rollback_in_nvs(void) {
+    const esp_partition_t *run = esp_ota_get_running_partition();
+    esp_ota_img_states_t st;
+    if (!run || esp_ota_get_state_partition(run, &st) != ESP_OK) return;
+    if (st != ESP_OTA_IMG_PENDING_VERIFY && st != ESP_OTA_IMG_INVALID) return;
+    nvs_handle_t h;
+    if (nvs_open(SCD_NVS_NS, NVS_READWRITE, &h) != ESP_OK) return;
+    uint32_t c = 0;
+    (void)nvs_get_u32(h, "ota_rollback", &c);
+    (void)nvs_set_u32(h, "ota_rollback", c + 1);
+    (void)nvs_commit(h);
+    nvs_close(h);
+}
+#endif
 
 static scd_identity_t s_identity;
 static volatile bool  s_identity_loaded = false;
@@ -131,6 +168,15 @@ __attribute__((weak)) void app_main(void) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
+
+    /* v0.3.0: persist boot count + stash reset reason so the heartbeat
+     * payload can include both. boot_count is NVS-persisted across
+     * reboots; reset_reason is per-boot. */
+    scd_metrics_set_boot_count(bump_boot_count_in_nvs());
+    scd_metrics_set_reset_reason((int)esp_reset_reason());
+#ifdef CONFIG_SCD_METRICS_OTA_ROLLBACK
+    bump_ota_rollback_in_nvs();
+#endif
 
     if (scd_identity_load(&s_identity) != ESP_OK) {
         ESP_LOGE(TAG,
