@@ -83,4 +83,103 @@ menu "SCADABLE Gateway"
             How long a single upload may take from open to close. Pick
             higher for big files on slow links.
 
+    menu "Metrics (opt-in via .scadable/config.yaml)"
+
+        config SCD_METRICS_BYTES_OUT
+            bool "Track outbound bytes (MQTT + HTTP uploads)"
+            default n
+
+        config SCD_METRICS_BYTES_IN
+            bool "Track inbound bytes (MQTT + HTTP responses)"
+            default n
+
+        config SCD_METRICS_CPU
+            bool "Track CPU percent (uses FreeRTOS runtime stats)"
+            default n
+            select FREERTOS_GENERATE_RUN_TIME_STATS
+
+        config SCD_METRICS_MEM_PERCENT
+            bool "Track heap usage percent"
+            default n
+
+        config SCD_METRICS_MEM_KB
+            bool "Track free heap (KB)"
+            default n
+
+        config SCD_METRICS_STORAGE_KB
+            bool "Track data-partition total size (KB)"
+            default n
+
+        config SCD_METRICS_SERVER_LATENCY
+            bool "Track server-side latency (heartbeat client_ts_ms)"
+            default n
+            help
+                Symmetric YAML name only; the heartbeat already carries
+                client_ts_ms in the always-on prefix. This flag exists so
+                .scadable/config.yaml can list "server_latency_ms" without
+                producing an unknown-metric warning.
+
+        config SCD_METRICS_WIFI_RSSI
+            bool "Track Wi-Fi RSSI (dBm)"
+            default n
+
+        config SCD_METRICS_MQTT_RECONNECT
+            bool "Track MQTT reconnect count"
+            default n
+
+        config SCD_METRICS_OTA_ROLLBACK
+            bool "Track OTA rollback count (NVS-persisted)"
+            default n
+
+        config SCD_METRICS_PARTITION
+            bool "Report current running OTA partition label"
+            default n
+
+    endmenu
+
+    menu "Logs"
+
+        config SCD_LOGS_ENABLE
+            bool "Enable log capture + MQTT upload"
+            default n
+            help
+                Captures ESP_LOG output via esp_log_set_vprintf, batches
+                into a ring buffer, and publishes to scadable/<cn>/logs
+                periodically. Adds ~2.4 KB flash + the configured ring
+                buffer in heap. Off by default.
+
+        config SCD_LOGS_UPLOAD_INTERVAL_S
+            int "Log upload interval (seconds)"
+            depends on SCD_LOGS_ENABLE
+            default 60
+            range 10 3600
+
+        config SCD_LOGS_BUFFER_KB
+            int "Log ring buffer size (KB)"
+            depends on SCD_LOGS_ENABLE
+            default 16
+            range 2 64
+
+        choice
+            prompt "Minimum level to upload"
+            depends on SCD_LOGS_ENABLE
+            default SCD_LOGS_MIN_LEVEL_I
+            help
+                Levels below this are dropped from the upload batch but
+                still go to UART. V < D < I < W < E.
+
+            config SCD_LOGS_MIN_LEVEL_V
+                bool "Verbose"
+            config SCD_LOGS_MIN_LEVEL_D
+                bool "Debug"
+            config SCD_LOGS_MIN_LEVEL_I
+                bool "Info"
+            config SCD_LOGS_MIN_LEVEL_W
+                bool "Warning"
+            config SCD_LOGS_MIN_LEVEL_E
+                bool "Error"
+        endchoice
+
+    endmenu
+
 endmenu
