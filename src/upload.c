@@ -114,8 +114,12 @@ esp_err_t scadable_upload_chunk(scd_upload_handle_t h,
                                         (int)len);
     if (written < 0 || (size_t)written != len) {
         ESP_LOGW(TAG, "write failed: wrote %d of %u", written, (unsigned)len);
+        /* Count whatever did make it out before the short write - those
+         * bytes left this device even though the chunk as a whole failed. */
+        if (written > 0) atomic_fetch_add(&scd_bytes_out, (uint_least64_t)written);
         return ESP_FAIL;
     }
+    atomic_fetch_add(&scd_bytes_out, (uint_least64_t)written);
     return ESP_OK;
 }
 
