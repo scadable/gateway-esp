@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "esp_err.h"
+#include "esp_crt_bundle.h"        // bundled CA store (matches edge.c + mqtt_session.c fix from v0.2.3)
 #include "esp_http_client.h"
 #include "esp_log.h"
 
@@ -63,7 +64,12 @@ esp_err_t scadable_upload_begin(const char *filename,
         .url               = CONFIG_SCD_UPLOAD_URL,
         .method            = HTTP_METHOD_PUT,
         .timeout_ms        = CONFIG_SCD_UPLOAD_TIMEOUT_MS,
-        .crt_bundle_attach = NULL,   /* use system cert bundle */
+        /* Same fix as edge.c + mqtt_session.c in v0.2.3 — attach the
+         * bundled CA store so esp-tls actually verifies the server cert
+         * instead of refusing the connection with "No server verification
+         * option set". Without this, every audio upload silently failed
+         * the TLS handshake and /v1/files stayed empty. */
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
     h->client = esp_http_client_init(&cfg);
     if (!h->client) {
