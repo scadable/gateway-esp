@@ -30,7 +30,12 @@ void scd_log_sink_start_flush_task(void)   { /* noop */ }
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-static const char *TAG_INTERNAL = "scd.log";
+/* No module TAG: the log sink intentionally never calls ESP_LOG itself.
+ * Any such call would recurse through sink_vprintf, and while the
+ * s_in_sink guard prevents the recursion from being captured, the
+ * round-trip is wasteful. If we ever do want diagnostic output from
+ * the sink, route it through a stderr/printf path that bypasses the
+ * vprintf hook. */
 
 #define RING_SIZE             (CONFIG_SCD_LOGS_BUFFER_KB * 1024)
 #define FLUSH_HIGH_WATERMARK  ((RING_SIZE * 3) / 4)
@@ -192,7 +197,10 @@ static void flush_task(void *arg) {
     (void)arg;
     static char snapshot[RING_SIZE];
     static char payload[RING_SIZE * 2 + 256]; /* JSON-escaped grows up to 6x; assume 2x typical */
-    char topic[96];
+    /* Sized for "scadable/" (9) + common_name (up to SCD_COMMON_NAME_MAX=96
+     * including NUL) + "/logs" (5) + NUL. GCC's -Werror=format-truncation
+     * flags anything tighter as unsafe even though snprintf would clamp. */
+    char topic[128];
 
     /* Build topic once - identity is stable. */
     const scd_identity_t *id = scd_get_identity();
