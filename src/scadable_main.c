@@ -30,6 +30,7 @@
  */
 
 #include "scadable_internal.h"
+#include "log_sink.h"
 
 #include <stdbool.h>
 #include <string.h>           // strncpy in the NVS-fallback path
@@ -141,6 +142,7 @@ static void bootstrap_online_task(void *arg) {
     }
     scd_heartbeat_start(&s_identity);
     scd_ota_start(&s_identity);
+    scd_log_sink_start_flush_task();
 
     ESP_LOGI(TAG, "online bootstrap complete");
     vTaskDelete(NULL);
@@ -159,6 +161,10 @@ static void on_ip_event(void *arg, esp_event_base_t base, int32_t id, void *data
 }
 
 __attribute__((weak)) void app_main(void) {
+    /* Install the log sink FIRST so the boot log itself is captured.
+     * No-op stub if CONFIG_SCD_LOGS_ENABLE=n. */
+    scd_log_sink_install();
+
     ESP_LOGI(TAG, "libscadable v0.1.0 starting");
 
     /* NVS — required by esp_wifi for calibration even though we don't
