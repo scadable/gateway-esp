@@ -9,12 +9,14 @@
 
 idf_component_register(
     SRCS
-        "src/scadable_main.c"
-        "src/identity.c"
         "src/edge.c"
-        "src/mqtt_session.c"
         "src/heartbeat.c"
+        "src/identity.c"
+        "src/log_sink.c"        # v0.3.0
+        "src/metrics.c"         # v0.3.0
+        "src/mqtt_session.c"
         "src/ota_machine.c"
+        "src/scadable_main.c"
         "src/upload.c"
     INCLUDE_DIRS
         "include"
