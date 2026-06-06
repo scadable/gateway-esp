@@ -71,7 +71,10 @@ bool      scd_mqtt_is_connected(void);
 esp_err_t scd_mqtt_publish_raw(const char *topic, const void *payload, int len,
                                int qos, bool retain);
 int       scd_mqtt_subscribe (const char *topic);
-void      scd_mqtt_set_data_handler(void (*cb)(const char *topic, const char *data, int data_len));
+/* Register an inbound-data handler (small fixed list; handlers filter
+ * by topic themselves). Idempotent per function pointer. Call during
+ * bootstrap only — the list is not locked on the dispatch path. */
+void      scd_mqtt_add_data_handler(void (*cb)(const char *topic, const char *data, int data_len));
 
 /* ─── heartbeat.c ─── */
 void scd_heartbeat_start(const scd_identity_t *id);

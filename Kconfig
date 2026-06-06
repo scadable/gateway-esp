@@ -137,6 +137,45 @@ menu "SCADABLE Gateway"
 
     endmenu
 
+    menu "Config variables"
+
+        config SCD_CONFIG_ENABLE
+            bool "Enable dashboard config variables"
+            default y
+            help
+                Compile in the scadable_config_* API (docs: "Config
+                Variables"). The library subscribes to the retained
+                scadable/devices/<cn>/cmd/config topic, persists the
+                resolved map to NVS (survives reboot + offline boot),
+                exposes typed getters plus a change callback, and echoes
+                the applied version in the heartbeat as config_version.
+                On by default — this is part of the standard platform
+                surface; disable to shave ~2 KB if you'll never use it.
+
+        config SCD_CONFIG_MAX_JSON
+            int "Max config payload size (bytes)"
+            depends on SCD_CONFIG_ENABLE
+            default 1536
+            range 256 4096
+            help
+                Upper bound for the retained config JSON the device will
+                accept; larger payloads are rejected and logged. Note:
+                the MQTT inbound buffer is 2048 bytes — payloads that
+                don't fit a single MQTT read never reach the config
+                layer, so keep this <= ~1.5 KB unless you also grow the
+                client buffer.
+
+        config SCD_CONFIG_NVS_NAMESPACE
+            string "NVS namespace for the cached map"
+            depends on SCD_CONFIG_ENABLE
+            default "scd_config"
+            help
+                Where the last-applied map + version are persisted.
+                Separate from the credential namespace so a config wipe
+                never touches identity.
+
+    endmenu
+
     menu "Logs"
 
         config SCD_LOGS_ENABLE

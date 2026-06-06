@@ -32,6 +32,7 @@ static const char *TAG = "scd.mqtt";
 
 #define MAX_SUBS 4
 #define MAX_TOPIC_LEN 128
+#define MAX_DATA_HANDLERS 4
 
 static esp_mqtt_client_handle_t s_client = NULL;
 static atomic_bool              s_connected = ATOMIC_VAR_INIT(false);
@@ -39,7 +40,14 @@ static atomic_bool              s_connected = ATOMIC_VAR_INIT(false);
 static SemaphoreHandle_t s_subs_mux = NULL;
 static char              s_topics[MAX_SUBS][MAX_TOPIC_LEN];
 static int               s_topic_count = 0;
-static void            (*s_data_cb)(const char *, const char *, int) = NULL;
+
+/* Inbound-data dispatch: a small fixed list instead of a single slot,
+ * so ota_machine and config_store (and future inbound features) can each
+ * register without clobbering each other. Handlers filter by topic
+ * themselves. Registration happens once during bootstrap, before any
+ * subscription can deliver — no lock needed on the read path. */
+static void (*s_data_cbs[MAX_DATA_HANDLERS])(const char *, const char *, int);
+static int   s_data_cb_count = 0;
 
 /* Stash CA + (eventually) cert/key so reconnect doesn't need them
  * re-passed. Pointers into the identity struct, which is resident
@@ -76,13 +84,15 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t event_id, vo
          * The counter is "bytes ingested by our process", not "bytes
          * delivered to user code". */
         atomic_fetch_add(&scd_bytes_in, (uint_least64_t)event->data_len);
-        if (!s_data_cb || event->topic_len <= 0) break;
+        if (s_data_cb_count == 0 || event->topic_len <= 0) break;
         /* Topic + data are not NUL-terminated in the event. */
         char topic[MAX_TOPIC_LEN];
         int  tn = event->topic_len < MAX_TOPIC_LEN - 1 ? event->topic_len : MAX_TOPIC_LEN - 1;
         memcpy(topic, event->topic, tn);
         topic[tn] = '\0';
-        s_data_cb(topic, event->data, event->data_len);
+        for (int i = 0; i < s_data_cb_count; i++) {
+            s_data_cbs[i](topic, event->data, event->data_len);
+        }
         break;
     }
     case MQTT_EVENT_ERROR:
@@ -205,8 +215,17 @@ int scd_mqtt_subscribe(const char *topic) {
     return 0;  /* deferred to next connect */
 }
 
-void scd_mqtt_set_data_handler(void (*cb)(const char *, const char *, int)) {
-    s_data_cb = cb;
+void scd_mqtt_add_data_handler(void (*cb)(const char *, const char *, int)) {
+    if (!cb) return;
+    for (int i = 0; i < s_data_cb_count; i++) {
+        if (s_data_cbs[i] == cb) return;   /* idempotent */
+    }
+    if (s_data_cb_count >= MAX_DATA_HANDLERS) {
+        ESP_LOGE(TAG, "data handler list full (%d); dropping registration",
+                 MAX_DATA_HANDLERS);
+        return;
+    }
+    s_data_cbs[s_data_cb_count++] = cb;
 }
 
 /* ───── Public API wrappers ───── */

@@ -30,8 +30,10 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "esp_err.h"
+#include "sdkconfig.h"   /* the opt-in sections below key off CONFIG_SCD_* */
 
 #ifdef __cplusplus
 extern "C" {
@@ -205,6 +207,56 @@ esp_err_t scadable_upload_end(scd_upload_handle_t h,
 void scadable_upload_abort(scd_upload_handle_t h);
 
 #endif /* CONFIG_SCD_UPLOAD_ENABLE */
+
+/* ─── Config variables (v0.4.0) ─────────────────────────────────────
+ *
+ * Typed key/value settings you declare once in .scadable/config.yaml,
+ * set from the SCADABLE dashboard, and read here at runtime. The
+ * resolved map (schema default → org → namespace → device) arrives as
+ * a RETAINED message and is cached in NVS, so these reads return
+ * last-known values even before the network is up — from the first
+ * line of scadable_user_main.
+ *
+ * The fallback is returned when the key is missing or the wrong type,
+ * so your code is safe on first boot, before any platform value has
+ * arrived. Bad config can never brick a device.
+ *
+ *     int  rate = scadable_config_int ("sample_rate_hz", 10);
+ *     bool pump = scadable_config_bool("pump_enabled",  false);
+ *
+ *     char mode[16];
+ *     scadable_config_str("mode", mode, sizeof(mode));
+ *
+ * Compiled in by default; CONFIG_SCD_CONFIG_ENABLE=n removes it.
+ */
+#if defined(CONFIG_SCD_CONFIG_ENABLE)
+
+/* Typed getters. Return `fallback` when the key is absent, no config
+ * has ever arrived, or the stored value has the wrong type.
+ * Thread-safe; non-blocking (reads a RAM cache). */
+int32_t scadable_config_int  (const char *key, int32_t fallback);
+bool    scadable_config_bool (const char *key, bool    fallback);
+float   scadable_config_float(const char *key, float   fallback);
+
+/* String / enum getter. Copies the value into buf (NUL-terminated).
+ * Returns the number of bytes copied, 0 if the key is absent, the
+ * value isn't a string, or it doesn't fit in len. */
+size_t  scadable_config_str  (const char *key, char *buf, size_t len);
+
+/* Register a callback fired the moment a new config map is applied,
+ * instead of polling every loop. Single slot (last registration wins).
+ * Runs on the MQTT event task — do not block; re-read what you care
+ * about (or set a flag for your own task) and return.
+ *
+ *     static void on_config(void *ctx) {
+ *         retune_sampler(scadable_config_int("sample_rate_hz", 10));
+ *     }
+ *     scadable_config_on_change(on_config, NULL);
+ */
+typedef void (*scadable_config_cb_t)(void *ctx);
+void scadable_config_on_change(scadable_config_cb_t cb, void *ctx);
+
+#endif /* CONFIG_SCD_CONFIG_ENABLE */
 
 #ifdef __cplusplus
 }

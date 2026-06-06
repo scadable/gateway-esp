@@ -30,6 +30,7 @@
  */
 
 #include "scadable_internal.h"
+#include "config_store.h"
 #include "log_sink.h"
 
 #include <stdbool.h>
@@ -142,6 +143,7 @@ static void bootstrap_online_task(void *arg) {
     }
     scd_heartbeat_start(&s_identity);
     scd_ota_start(&s_identity);
+    scd_config_start(&s_identity);
     scd_log_sink_start_flush_task();
 
     ESP_LOGI(TAG, "online bootstrap complete");
@@ -183,6 +185,11 @@ __attribute__((weak)) void app_main(void) {
 #ifdef CONFIG_SCD_METRICS_OTA_ROLLBACK
     bump_ota_rollback_in_nvs();
 #endif
+
+    /* Load the cached config map from NVS BEFORE user_main so customer
+     * code sees its last-applied values from the very first line, even
+     * with no network. No-op stub when CONFIG_SCD_CONFIG_ENABLE=n. */
+    scd_config_boot_load();
 
     if (scd_identity_load(&s_identity) != ESP_OK) {
         ESP_LOGE(TAG,

@@ -11,6 +11,12 @@
 
 #include <stdio.h>
 
+#include "sdkconfig.h"  /* must precede the CONFIG_SCD_CONFIG_ENABLE check */
+#ifdef CONFIG_SCD_CONFIG_ENABLE
+#include "scadable.h"       /* scadable_config_int for sys.heartbeat_interval_ms */
+#include "config_store.h"   /* scd_config_version for the heartbeat echo */
+#endif
+
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -24,9 +30,20 @@ static const char *TAG = "scd.heartbeat";
  * folded in. Snprintf truncates rather than overflowing. */
 #define HEARTBEAT_BUF_SIZE 512
 
+/* Per-tick period. Kconfig default, overridable live via the reserved
+ * sys.heartbeat_interval_ms config variable (clamped to >= 1 s so a
+ * dashboard typo can't melt the broker). */
+static TickType_t heartbeat_period(void) {
+    int32_t ms = CONFIG_SCD_HEARTBEAT_INTERVAL_S * 1000;
+#ifdef CONFIG_SCD_CONFIG_ENABLE
+    ms = scadable_config_int("sys.heartbeat_interval_ms", ms);
+    if (ms < 1000) ms = 1000;
+#endif
+    return pdMS_TO_TICKS(ms);
+}
+
 static void heartbeat_task(void *arg) {
     const scd_identity_t *id = (const scd_identity_t *)arg;
-    const TickType_t period = pdMS_TO_TICKS(CONFIG_SCD_HEARTBEAT_INTERVAL_S * 1000);
     char buf[HEARTBEAT_BUF_SIZE];
 
     /* Give MQTT a beat to come up before the first publish attempt. */
@@ -50,6 +67,15 @@ static void heartbeat_task(void *arg) {
                 scd_reset_reason_str(),
                 (long long)now_ms);
             if (n > 0 && n < (int)sizeof(buf)) {
+#ifdef CONFIG_SCD_CONFIG_ENABLE
+                /* config_version echoes the applied config map so the
+                 * dashboard can show each device as synced / pending —
+                 * drift surfaces within one heartbeat interval. */
+                int e = snprintf(buf + n, sizeof(buf) - n,
+                                 ",\"config_version\":%u",
+                                 (unsigned)scd_config_version());
+                if (e > 0 && e < (int)sizeof(buf) - n) n += e;
+#endif
                 int m = scd_metrics_collect_json(buf + n, (int)sizeof(buf) - n);
                 if (m > 0) n += m;
 
@@ -72,7 +98,7 @@ static void heartbeat_task(void *arg) {
                 }
             }
         }
-        vTaskDelay(period);
+        vTaskDelay(heartbeat_period());   /* re-read: config can change live */
     }
 }
 

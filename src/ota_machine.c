@@ -183,7 +183,7 @@ void scd_ota_start(const scd_identity_t *id) {
     /* Register our handler with the MQTT layer + subscribe. The
      * subscribe is queued if MQTT isn't connected yet — replayed
      * on each (re)connect. */
-    scd_mqtt_set_data_handler(on_mqtt_data);
+    scd_mqtt_add_data_handler(on_mqtt_data);
     scd_mqtt_subscribe(s_id->topic_ota_cmd);
 
     /* On boot, mark the running image valid so the bootloader doesn't
