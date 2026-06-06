@@ -103,8 +103,15 @@ static void heartbeat_task(void *arg) {
 }
 
 void scd_heartbeat_start(const scd_identity_t *id) {
+    /* Stack: 4096, not 2048. The task snprintfs a 512-byte JSON, reads
+     * config vars (v0.4.0), and — decisive — when CONFIG_SCD_LOGS_ENABLE
+     * hooks vprintf, any ESP_LOG from this task runs a second formatting
+     * pass through the sink. A customer task with an identical profile
+     * at 2048 hit "stack overflow in task" boot loops on real hardware
+     * (ESP32-S3, 2026-06-06); this task only escaped because it logs
+     * rarely. Don't thin this back down. */
     BaseType_t ok = xTaskCreate(
-        heartbeat_task, "scd_hb", 2048, (void *)id, 3, NULL);
+        heartbeat_task, "scd_hb", 4096, (void *)id, 3, NULL);
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "xTaskCreate failed");
     }
