@@ -9,6 +9,7 @@
 
 idf_component_register(
     SRCS
+        "src/config_store.c"    # v0.4.0 — dashboard config variables
         "src/edge.c"
         "src/heartbeat.c"
         "src/identity.c"
