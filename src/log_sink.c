@@ -19,6 +19,10 @@ void scd_log_sink_start_flush_task(void)   { /* noop */ }
 
 #include "scadable_internal.h"
 
+#ifdef CONFIG_SCD_CONFIG_ENABLE
+#include "scadable.h"   /* scadable_config_int for sys.log_flush_interval_ms */
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,6 +197,19 @@ static int append_log_entry(char *out, int out_len, int p, const char *line, siz
     return p;
 }
 
+/* Flush cadence. Kconfig default, overridable live via the reserved
+ * sys.log_flush_interval_ms config variable (clamped to >= 5 s so a
+ * dashboard typo can't hammer the broker). Re-read each cycle so a
+ * dashboard change takes effect within one interval. */
+static TickType_t flush_interval_ticks(void) {
+    int32_t ms = FLUSH_INTERVAL_MS;
+#ifdef CONFIG_SCD_CONFIG_ENABLE
+    ms = scadable_config_int("sys.log_flush_interval_ms", ms);
+    if (ms < 5000) ms = 5000;
+#endif
+    return pdMS_TO_TICKS(ms);
+}
+
 static void flush_task(void *arg) {
     (void)arg;
     static char snapshot[RING_SIZE];
@@ -208,7 +225,7 @@ static void flush_task(void *arg) {
     snprintf(topic, sizeof(topic), "scadable/%s/logs", id->common_name);
 
     while (1) {
-        xSemaphoreTake(s_flush_signal, pdMS_TO_TICKS(FLUSH_INTERVAL_MS));
+        xSemaphoreTake(s_flush_signal, flush_interval_ticks());
 
         if (!scd_mqtt_is_connected()) continue;
 

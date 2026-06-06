@@ -18,7 +18,7 @@ docs page doesn't; read that page first.
 | NVS cache, readable before network | ✅ loaded in `app_main` before `scadable_user_main` |
 | Heartbeat `config_version` echo | ✅ added to the always-on heartbeat fields |
 | `sys.heartbeat_interval_ms` | ✅ heartbeat task re-reads each tick (clamped ≥ 1 s) |
-| `sys.log_flush_interval_ms` | ❌ not yet — log_sink flush interval is still compile-time |
+| `sys.log_flush_interval_ms` | ✅ log_sink flush task re-reads each cycle (clamped ≥ 5 s) |
 | Schema validation / codegen | n/a — build-pipeline concern; the library is schema-agnostic |
 
 ## Implementation notes
