@@ -32,6 +32,12 @@ late).
                "${_scd_cfg}" "${_scd_gen}"
        RESULT_VARIABLE _scd_rc)
      if(_scd_rc EQUAL 0 AND EXISTS "${_scd_gen}")
+       # Preserve IDF's implicit sdkconfig.defaults — otherwise listing
+       # only the generated file makes IDF ignore your sdkconfig.defaults
+       # entirely. Generated file goes first so explicit settings win.
+       if(NOT SDKCONFIG_DEFAULTS)
+         set(SDKCONFIG_DEFAULTS "sdkconfig.defaults")
+       endif()
        list(PREPEND SDKCONFIG_DEFAULTS "${_scd_gen}")
      endif()
    endif()
