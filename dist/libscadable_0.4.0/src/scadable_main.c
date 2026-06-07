@@ -167,7 +167,7 @@ __attribute__((weak)) void app_main(void) {
      * No-op stub if CONFIG_SCD_LOGS_ENABLE=n. */
     scd_log_sink_install();
 
-    ESP_LOGI(TAG, "libscadable v0.4.1 starting");
+    ESP_LOGI(TAG, "libscadable v0.1.0 starting");
 
     /* NVS — required by esp_wifi for calibration even though we don't
      * use Wi-Fi directly, and required by us for the credential bundle. */

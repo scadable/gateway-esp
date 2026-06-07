@@ -154,12 +154,8 @@ esp_err_t scd_mqtt_start(const scd_identity_t *id, const scd_edge_route_t *route
             .reconnect_timeout_ms = CONFIG_SCD_MQTT_RECONNECT_TIMEOUT_MS,
         },
         .buffer = {
-            // in: 2048 holds the inbound config map (<= CONFIG_SCD_CONFIG_MAX_JSON 1536).
-            // out: 16384, not 1024 — log batches (up to the ring size, JSON-escaped)
-            // are multi-KB and silently failed to publish on a 1KB out buffer, so
-            // logs never reached the broker while small heartbeats did.
             .size     = 2048,
-            .out_size = 16384,
+            .out_size = 1024,
         },
     };
 

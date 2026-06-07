@@ -103,14 +103,8 @@ static void heartbeat_task(void *arg) {
 }
 
 void scd_heartbeat_start(const scd_identity_t *id) {
-    // 6144, not 2048: the task holds a 512-byte JSON buffer on its stack,
-    // collects metrics, and — when CONFIG_SCD_LOGS_ENABLE hooks vprintf —
-    // every ESP_LOG in this path runs a second formatting pass through the
-    // log sink. 2048 overflowed and panicked ~5s after connect (stack
-    // overflow in task scd_hb), crash-looping the device before the first
-    // heartbeat could publish. Matches the log-flush task's 6144.
     BaseType_t ok = xTaskCreate(
-        heartbeat_task, "scd_hb", 6144, (void *)id, 3, NULL);
+        heartbeat_task, "scd_hb", 2048, (void *)id, 3, NULL);
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "xTaskCreate failed");
     }

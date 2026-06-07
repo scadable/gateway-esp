@@ -1,0 +1,224 @@
+# Kconfig options for libscadable. These show up under
+#   (Top) → Component config → SCADABLE Gateway
+# in `idf.py menuconfig`.
+
+menu "SCADABLE Gateway"
+
+    config SCD_EDGE_URL
+        string "Edge router URL"
+        default "https://edge.scadable.com/v1/route"
+        help
+            The HTTPS endpoint the library calls at boot to discover
+            which MQTT broker to connect to. Defaults to the production
+            edge. Override for dev / staging.
+
+    config SCD_EDGE_TIMEOUT_MS
+        int "Edge HTTP timeout (ms)"
+        default 10000
+        range 1000 60000
+        help
+            Per-attempt HTTPS timeout for GET /v1/route. The library
+            retries with backoff on failure (then falls back to the
+            NVS-baked mqtt_host / mqtt_port).
+
+    config SCD_EDGE_MAX_RETRIES
+        int "Edge HTTP retries"
+        default 2
+        range 0 10
+        help
+            How many times to retry the /v1/route call before falling
+            back to the NVS-baked broker host.
+
+    config SCD_HEARTBEAT_INTERVAL_S
+        int "Heartbeat interval (seconds)"
+        default 30
+        range 5 3600
+        help
+            How often the library publishes a heartbeat to
+            scadable/<cn>/heartbeat. Default 30s.
+
+    config SCD_MQTT_RECONNECT_TIMEOUT_MS
+        int "MQTT reconnect timeout (ms)"
+        default 5000
+        range 1000 60000
+
+    config SCD_NVS_NAMESPACE
+        string "NVS namespace for device credentials"
+        default "scadable_cfg"
+        help
+            Must match what the SCADABLE backend's provisioning bundle
+            writes. Change only if you're running a custom provisioner.
+
+    config SCD_DEBUG_VERBOSE
+        bool "Verbose logging"
+        default n
+        help
+            Enables debug-level logs from the library. Off by default
+            to keep console noise low in production.
+
+    config SCD_UPLOAD_ENABLE
+        bool "Enable file upload feature"
+        default n
+        help
+            Compile in the scadable_upload_* API for streaming file
+            uploads to uploads.scadable.com. Off by default so projects
+            that don't need uploads pay zero cost (no extra code, no
+            extra heap, no extra TLS handshakes).
+
+    config SCD_UPLOAD_URL
+        string "Uploads endpoint URL"
+        depends on SCD_UPLOAD_ENABLE
+        default "https://uploads.scadable.com/v1/upload"
+        help
+            HTTPS endpoint the upload API PUTs to. Override for dev or
+            staging environments. The library adds X-Device-CN headers
+            automatically.
+
+    config SCD_UPLOAD_TIMEOUT_MS
+        int "Per-upload HTTP timeout (ms)"
+        depends on SCD_UPLOAD_ENABLE
+        default 60000
+        range 5000 600000
+        help
+            How long a single upload may take from open to close. Pick
+            higher for big files on slow links.
+
+    menu "Metrics (opt-in via .scadable/config.yaml)"
+
+        config SCD_METRICS_BYTES_OUT
+            bool "Track outbound bytes (MQTT + HTTP uploads)"
+            default n
+
+        config SCD_METRICS_BYTES_IN
+            bool "Track inbound bytes (MQTT + HTTP responses)"
+            default n
+
+        config SCD_METRICS_CPU
+            bool "Track CPU percent (uses FreeRTOS runtime stats)"
+            default n
+            select FREERTOS_GENERATE_RUN_TIME_STATS
+
+        config SCD_METRICS_MEM_PERCENT
+            bool "Track heap usage percent"
+            default n
+
+        config SCD_METRICS_MEM_KB
+            bool "Track free heap (KB)"
+            default n
+
+        config SCD_METRICS_STORAGE_KB
+            bool "Track data-partition total size (KB)"
+            default n
+
+        config SCD_METRICS_SERVER_LATENCY
+            bool "Track server-side latency (heartbeat client_ts_ms)"
+            default n
+            help
+                Symmetric YAML name only; the heartbeat already carries
+                client_ts_ms in the always-on prefix. This flag exists so
+                .scadable/config.yaml can list "server_latency_ms" without
+                producing an unknown-metric warning.
+
+        config SCD_METRICS_WIFI_RSSI
+            bool "Track Wi-Fi RSSI (dBm)"
+            default n
+
+        config SCD_METRICS_MQTT_RECONNECT
+            bool "Track MQTT reconnect count"
+            default n
+
+        config SCD_METRICS_OTA_ROLLBACK
+            bool "Track OTA rollback count (NVS-persisted)"
+            default n
+
+        config SCD_METRICS_PARTITION
+            bool "Report current running OTA partition label"
+            default n
+
+    endmenu
+
+    menu "Config variables"
+
+        config SCD_CONFIG_ENABLE
+            bool "Enable dashboard config variables"
+            default y
+            help
+                Compile in the scadable_config_* API (docs: "Config
+                Variables"). The library subscribes to the retained
+                scadable/devices/<cn>/cmd/config topic, persists the
+                resolved map to NVS (survives reboot + offline boot),
+                exposes typed getters plus a change callback, and echoes
+                the applied version in the heartbeat as config_version.
+                On by default — this is part of the standard platform
+                surface; disable to shave ~2 KB if you'll never use it.
+
+        config SCD_CONFIG_MAX_JSON
+            int "Max config payload size (bytes)"
+            depends on SCD_CONFIG_ENABLE
+            default 1536
+            range 256 4096
+            help
+                Upper bound for the retained config JSON the device will
+                accept; larger payloads are rejected and logged. Note:
+                the MQTT inbound buffer is 2048 bytes — payloads that
+                don't fit a single MQTT read never reach the config
+                layer, so keep this <= ~1.5 KB unless you also grow the
+                client buffer.
+
+        config SCD_CONFIG_NVS_NAMESPACE
+            string "NVS namespace for the cached map"
+            depends on SCD_CONFIG_ENABLE
+            default "scd_config"
+            help
+                Where the last-applied map + version are persisted.
+                Separate from the credential namespace so a config wipe
+                never touches identity.
+
+    endmenu
+
+    menu "Logs"
+
+        config SCD_LOGS_ENABLE
+            bool "Enable log capture + MQTT upload"
+            default n
+            help
+                Captures ESP_LOG output via esp_log_set_vprintf, batches
+                into a ring buffer, and publishes to scadable/<cn>/logs
+                periodically. Adds ~2.4 KB flash + the configured ring
+                buffer in heap. Off by default.
+
+        config SCD_LOGS_UPLOAD_INTERVAL_S
+            int "Log upload interval (seconds)"
+            depends on SCD_LOGS_ENABLE
+            default 60
+            range 10 3600
+
+        config SCD_LOGS_BUFFER_KB
+            int "Log ring buffer size (KB)"
+            depends on SCD_LOGS_ENABLE
+            default 16
+            range 2 64
+
+        choice
+            prompt "Minimum level to upload"
+            depends on SCD_LOGS_ENABLE
+            default SCD_LOGS_MIN_LEVEL_I
+            help
+                Levels below this are dropped from the upload batch but
+                still go to UART. V < D < I < W < E.
+
+            config SCD_LOGS_MIN_LEVEL_V
+                bool "Verbose"
+            config SCD_LOGS_MIN_LEVEL_D
+                bool "Debug"
+            config SCD_LOGS_MIN_LEVEL_I
+                bool "Info"
+            config SCD_LOGS_MIN_LEVEL_W
+                bool "Warning"
+            config SCD_LOGS_MIN_LEVEL_E
+                bool "Error"
+        endchoice
+
+    endmenu
+
+endmenu

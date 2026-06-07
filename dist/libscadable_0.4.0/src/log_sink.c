@@ -162,14 +162,9 @@ static int append_log_entry(char *out, int out_len, int p, const char *line, siz
         }
     }
 
-    /* {"level":"X","tag":"...","message":"...","uptime_ms":N}
-     * Comma-separate entries, but NOT the first one. Keying off p>1 was
-     * wrong — p is always >1 thanks to the {"device_id":...,"logs":[
-     * prefix, so the first entry got a leading comma → "logs":[,{...}]
-     * → invalid JSON, and the backend dropped every batch. Key off the
-     * array bracket instead: no comma right after '['. */
+    /* {"level":"X","tag":"...","message":"...","uptime_ms":N} */
     int n = snprintf(out + p, out_len - p, "%s{\"level\":\"%c\",\"tag\":\"",
-                     ((p > 0 && out[p - 1] == '[') ? "" : ","), parsed ? level : 'I');
+                     (p > 1 ? "," : ""), parsed ? level : 'I');
     if (n < 0 || n >= out_len - p) return -1;
     p += n;
 
