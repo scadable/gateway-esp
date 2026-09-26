@@ -7,15 +7,17 @@ pull requests.
 
 Email security@scadable.com with:
 
-- a description of the problem and where you found it;
+- what you found, and where: the URL, endpoint or repository;
 - the steps to reproduce it;
-- what an attacker could do with it, if you know.
+- the impact you think it has;
+- how we can reach you.
 
-We acknowledge every report within one business day and keep you updated as
-we work on a fix. When the problem is fixed, we will tell you.
+We reply within five business days. When we confirm a problem, we rate its
+severity and fix it on the timeline that severity sets.
 
-SCADABLE does not run a bug bounty program and does not pay for reports.
+SCADABLE does not run a bug bounty program.
 
 ## Supported versions
 
-We fix security problems on the default branch and in the latest release.
+Only the default branch is supported. A fix is made there and reaches users in
+the next release or deploy.
