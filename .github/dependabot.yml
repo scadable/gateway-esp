@@ -1,7 +1,8 @@
 # Dependabot version updates. Weekly, at most five open pull requests per
 # ecosystem, and minor and patch updates grouped into one pull request per
-# ecosystem so they arrive together. A major update opens on its own. Nothing
-# merges without a review.
+# ecosystem so they arrive together. A major update opens on its own, except
+# for GitHub Actions, where every update is grouped (see that entry).
+# Dependabot only opens pull requests; nothing in this file merges one.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
