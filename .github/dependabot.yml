@@ -1,0 +1,18 @@
+# Dependabot version updates. Weekly, at most five open pull requests per
+# ecosystem, and minor and patch updates grouped into one pull request per
+# ecosystem so they arrive together. A major update opens on its own. Nothing
+# merges without a review.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
