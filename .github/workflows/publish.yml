@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Verify tag matches manifest version
         run: |
@@ -35,7 +35,7 @@ jobs:
           echo "Releasing $TAG_VERSION"
 
       - name: Upload to Component Registry
-        uses: espressif/upload-components-ci-action@v1
+        uses: espressif/upload-components-ci-action@v2
         with:
           name: libscadable
           namespace: scadable
